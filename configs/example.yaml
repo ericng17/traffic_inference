@@ -1,0 +1,43 @@
+run:
+  id: ${RUN_ID}
+  expected_dataset_count: 7
+  inference_budget_hours: 120
+input:
+  repo_ids: ${HF_REPO_IDS}
+  sources_uri: ${SOURCE_CONFIG_URI}
+  discovery_uri: ${DISCOVERY_URI}
+  manifest_base_uri: ${MANIFEST_BASE_URI}
+  source_timezone: Asia/Ho_Chi_Minh
+artifacts:
+  weights_uri: ${WEIGHTS_URI}
+  weights_sha256: ${WEIGHTS_SHA256}
+  roi_uri: ${ROI_URI}
+  roi_sha256: ${ROI_SHA256}
+  camera_mapping_uri: ${CAMERA_MAPPING_URI}
+  camera_mapping_sha256: ${CAMERA_MAPPING_SHA256}
+detector:
+  backend: pytorch
+  precision: fp32
+  imgsz: 640
+  confidence: 0.35
+  nms_iou: 0.7
+  max_det: 1000
+  classes: [0, 1, 2, 3]
+  class_names: [2-wheel vehicles, bus, car, truck]
+  batch_size: 16
+  allow_cpu_fallback: false
+execution:
+  gpu_actors: 1
+  task_target_images: 4000
+  task_target_bytes: 536870912
+  cache_dir: ${CACHE_DIR}
+  cache_max_bytes: ${CACHE_MAX_BYTES}
+  lease_ttl_seconds: 180
+  heartbeat_seconds: 30
+  task_deadline_seconds: 1800
+  max_attempts: 3
+  retry_backoff_seconds: [30, 120]
+  oom_batch_sizes: [16, 8, 4, 1]
+output:
+  base_uri: ${OUTPUT_BASE_URI}
+  aggregate_method: mean

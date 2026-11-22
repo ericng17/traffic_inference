@@ -1,0 +1,44 @@
+{
+  "ericng17/hcm_traffic_snapshots": {
+    "representation": "raw",
+    "include": "*.jpg",
+    "filename_regex": "(?:snapshots/)?(?P<camera>[0-9a-f]{24})/(?P<timestamp>\\d{8}_\\d{6})\\.jpg",
+    "timestamp_format": "%Y%m%d_%H%M%S"
+  },
+  "ericng17/hcm_traffic_snapshots2": {
+    "representation": "raw",
+    "include": "*.jpg",
+    "filename_regex": "(?:snapshots/)?(?P<camera>[0-9a-f]{24})/(?P<timestamp>\\d{8}_\\d{6})\\.jpg",
+    "timestamp_format": "%Y%m%d_%H%M%S"
+  },
+  "ericng17/hcm_traffic_snapshots3": {
+    "representation": "raw",
+    "include": "*.jpg",
+    "filename_regex": "(?:snapshots/)?(?P<camera>[0-9a-f]{24})/(?P<timestamp>\\d{8}_\\d{6})\\.jpg",
+    "timestamp_format": "%Y%m%d_%H%M%S"
+  },
+  "ericng17/hcm_traffic_snapshots4": {
+    "representation": "raw",
+    "include": "*.jpg",
+    "filename_regex": "(?:snapshots/)?(?P<camera>[0-9a-f]{24})/(?P<timestamp>\\d{8}_\\d{6})\\.jpg",
+    "timestamp_format": "%Y%m%d_%H%M%S"
+  },
+  "ericng17/hcm_traffic_snapshots5": {
+    "representation": "raw",
+    "include": "*.jpg",
+    "filename_regex": "(?:snapshots/)?(?P<camera>[0-9a-f]{24})/(?P<timestamp>\\d{8}_\\d{6})\\.jpg",
+    "timestamp_format": "%Y%m%d_%H%M%S"
+  },
+  "ericng17/hcm_traffic_snapshots6": {
+    "representation": "raw",
+    "include": "*.jpg",
+    "filename_regex": "(?:snapshots/)?(?P<camera>[0-9a-f]{24})/(?P<timestamp>\\d{8}_\\d{6})\\.jpg",
+    "timestamp_format": "%Y%m%d_%H%M%S"
+  },
+  "ericng17/hcm_traffic_snapshots7": {
+    "representation": "raw",
+    "include": "*.jpg",
+    "filename_regex": "(?:snapshots/)?(?P<camera>[0-9a-f]{24})/(?P<timestamp>\\d{8}_\\d{6})\\.jpg",
+    "timestamp_format": "%Y%m%d_%H%M%S"
+  }
+}

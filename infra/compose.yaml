@@ -1,0 +1,141 @@
+name: traffic-pipeline
+services:
+  postgres:
+    image: postgres:17.4-bookworm
+    environment:
+      POSTGRES_USER: traffic
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traffic_local}
+      POSTGRES_DB: traffic
+    ports: ["127.0.0.1:${POSTGRES_PORT:-55432}:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U traffic -d traffic"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  kafka:
+    image: apache/kafka:3.9.0
+    ports: ["127.0.0.1:${KAFKA_PORT:-19092}:9092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:29093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://127.0.0.1:${KAFKA_PORT:-19092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data/logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes: ["kafka-data:/var/lib/kafka/data"]
+    healthcheck:
+      test: [CMD-SHELL, "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list >/dev/null"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+  smoke:
+    profiles: [fake]
+    image: traffic-pipeline-control:0.1.0
+    build: {context: .., dockerfile: infra/docker/Dockerfile.control}
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://traffic:${POSTGRES_PASSWORD:-traffic_local}@postgres:5432/traffic
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_LOG_GENERATION: ${KAFKA_LOG_GENERATION:-local-v1}
+      SMOKE_DIR: ${SMOKE_DIR:-var/smoke}
+    volumes: ["../data:/app/data", "../var:/app/var"]
+    shm_size: 1gb
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    command: [traffic-pipeline, smoke, --executor, ray]
+  control:
+    profiles: [control]
+    image: traffic-pipeline-control:0.1.0
+    build: {context: .., dockerfile: infra/docker/Dockerfile.control}
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://traffic:${POSTGRES_PASSWORD:-traffic_local}@postgres:5432/traffic
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    volumes: ["../data:/app/data", "../var:/app/var"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+  publisher:
+    extends: control
+    profiles: [control]
+    restart: unless-stopped
+    command: [traffic-pipeline, publish, --watch]
+  ingestor:
+    extends: control
+    profiles: [control]
+    restart: unless-stopped
+    command: [traffic-pipeline, ingest]
+  backup:
+    extends: control
+    profiles: [control]
+    restart: unless-stopped
+    stop_grace_period: 120s
+    environment:
+      BACKUP_DIR: ${BACKUP_DIR:-var/backups}
+    command: [traffic-pipeline, backup, --watch]
+  tests:
+    profiles: [test]
+    image: traffic-pipeline-control:0.1.0
+    build: {context: .., dockerfile: infra/docker/Dockerfile.control}
+    environment:
+      DATABASE_URL: postgresql://traffic:${POSTGRES_PASSWORD:-traffic_local}@postgres:5432/traffic
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_LOG_GENERATION: ${KAFKA_LOG_GENERATION:-local-v1}
+      RUN_INTEGRATION: '1'
+    shm_size: 1gb
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    command: [pytest, -q]
+  ray-head:
+    profiles: [gpu]
+    image: traffic-pipeline-worker:0.1.0
+    build: {context: .., dockerfile: infra/docker/Dockerfile.worker}
+    env_file: ../.env
+    volumes: ["../data:/app/data", "../var:/app/var"]
+    shm_size: 4gb
+    deploy:
+      resources:
+        reservations:
+          devices: [{driver: nvidia, count: all, capabilities: [gpu]}]
+    command: [ray, start, --head, --port=6379, "--object-store-memory=${RAY_OBJECT_STORE_BYTES:-134217728}", --include-dashboard=false, --block]
+  prepare:
+    profiles: [gpu]
+    image: traffic-pipeline-worker:0.1.0
+    build: {context: .., dockerfile: infra/docker/Dockerfile.worker}
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://traffic:${POSTGRES_PASSWORD:-traffic_local}@postgres:5432/traffic
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    volumes: ["../data:/app/data", "../var:/app/var"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    command: [traffic-pipeline, --help]
+  worker:
+    profiles: [gpu]
+    image: traffic-pipeline-worker:0.1.0
+    build: {context: .., dockerfile: infra/docker/Dockerfile.worker}
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://traffic:${POSTGRES_PASSWORD:-traffic_local}@postgres:5432/traffic
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      RAY_ADDRESS: ray-head:6379
+    volumes: ["../data:/app/data", "../var:/app/var"]
+    shm_size: 1gb
+    depends_on:
+      postgres: {condition: service_healthy}
+      ray-head: {condition: service_started}
+    command: [traffic-pipeline, work, --run-id, "${RUN_ID:-hcm-yolov8s-roi-run1}"]
+volumes:
+  postgres-data:
+  kafka-data:
